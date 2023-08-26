@@ -1,8 +1,9 @@
 {
   "name": "mimamori-logger2",
   "displayName": "mimamori-logger2",
-  "description": "",
-  "version": "0.0.1",
+  "description": "A logger extension for programming classes",
+  "repository": "https://github.com/kenglwo/mimamori-logger2",
+  "version": "1.0.0",
   "engines": {
     "vscode": "^1.81.0"
   },
