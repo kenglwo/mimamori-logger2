@@ -10,7 +10,6 @@ const MONGO_DATA_SRC: string = process.env.DATA_SRC || '';
 const MONGO_API_ENDPOINT: string = process.env.MONGO_API_ENDPOINT || '';
 const MIMAMORI_CODER_API_ENDPOINT: string = process.env.MIMAMORI_CODER_API_ENDPOINT || '';
 
-
 const fetchData = async(endpoint: string, dataType: string, bodyData: any, classCode: any, isMongo: boolean) => {
   let option = {};
 
@@ -120,19 +119,18 @@ export const activate = async(context: vscode.ExtensionContext) => {
 	};
 
     //Post data to MongoDB
-    try {
-      const res = await fetchData(MONGO_API_ENDPOINT, dataType, bodyData, classCode, true);
-    } catch (e: any) {
-      vscode.window.showInformationMessage(e.message);
-    }
-
-    //Post data to Mimamori
     // try {
-    //   vscode.window.showInformationMessage("Try to post to mimamori");
-    //   const res = await fetchData(MIMAMORI_CODER_API_ENDPOINT, dataType, bodyData, classCode, false);
+    //   const res = await fetchData(MONGO_API_ENDPOINT, dataType, bodyData, classCode, true);
     // } catch (e: any) {
     //   vscode.window.showInformationMessage(e.message);
     // }
+
+    //Post data to Mimamori
+    try {
+      const res = await fetchData(MIMAMORI_CODER_API_ENDPOINT, dataType, bodyData, classCode, false);
+    } catch (e: any) {
+      vscode.window.showInformationMessage(e.message);
+    }
   });
 
   //Command for changing student ID
