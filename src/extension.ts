@@ -3,46 +3,86 @@ import * as vscode from 'vscode';
 import fetch from 'node-fetch';
 import { config } from 'dotenv';
 config({ path: path.join(__dirname, '..', '.env') });
+import { checkFileExists, createJsonFile } from './utils';
 
 const MONGO_API_KEY: string = process.env.MONGO_API_KEY || '';
 const MONGO_DB_NAME: string = process.env.DBNAME || '';
 const MONGO_DATA_SRC: string = process.env.DATA_SRC || '';
 const MONGO_API_ENDPOINT: string = process.env.MONGO_API_ENDPOINT || '';
 const MIMAMORI_CODER_API_ENDPOINT: string = process.env.MIMAMORI_CODER_API_ENDPOINT || '';
+const tempDataFileName: string = 'tempData.json'
 
-const fetchData = async(endpoint: string, dataType: string, bodyData: any, classCode: any, isMongo: boolean) => {
-  let option = {};
-
+// @ts-ignore
+async function fetchData(url, dataType, bodyData, classCode, throwError, timeout = 5000) { // timeout parameter with a default of 5000 milliseconds
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
   let bodyCopy = bodyData;
-  if (isMongo) {
-    bodyCopy['collection'] = dataType;
-    bodyCopy['database'] = MONGO_DB_NAME;
-    bodyCopy['dataSource'] = MONGO_DATA_SRC;
-    vscode.window.showInformationMessage(classCode);
-    option = {
-      method: 'POST',
-      headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Request-Headers': '*',
-          'api-key': MONGO_API_KEY
-      },
-      body: JSON.stringify(bodyCopy),
-    };
-  } else {
-    bodyCopy['classCode'] = classCode;
-    option = {
-      method: 'POST',
-      headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Request-Headers': '*'
-      },
-      body: JSON.stringify(bodyCopy)
-    };
+  bodyCopy['classCode'] = classCode;
+
+  try {
+      const response = await fetch(url, {
+          method: 'POST', // Assuming POST, update as needed
+          headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Request-Headers': '*'
+          },
+          body: JSON.stringify(bodyCopy),
+          // @ts-ignore
+          signal: controller.signal
+      });
+
+      clearTimeout(timeoutId); // Clear the timeout as fetch has completed
+
+      if (!response.ok && throwError) {
+          throw new Error('Network response was not ok');
+      }
+
+      return await response.json(); // Assuming the server responds with JSON
+  } catch (error) {
+        // @ts-ignore
+      if (error.name === 'AbortError') {
+          throw new Error('Fetch request timed out');
+      } else {
+          throw error;
+      }
   }
-  const res = await fetch(endpoint, option);
-  const resJson = await res.json();
-  return resJson;
-};
+}
+
+
+
+// const fetchData = async(endpoint: string, dataType: string, bodyData: any, classCode: any, isMongo: boolean) => {
+//   let option = {};
+
+//   let bodyCopy = bodyData;
+//   if (isMongo) {
+//     bodyCopy['collection'] = dataType;
+//     bodyCopy['database'] = MONGO_DB_NAME;
+//     bodyCopy['dataSource'] = MONGO_DATA_SRC;
+//     vscode.window.showInformationMessage(classCode);
+//     option = {
+//       method: 'POST',
+//       headers: {
+//           'Content-Type': 'application/json',
+//           'Access-Control-Request-Headers': '*',
+//           'api-key': MONGO_API_KEY
+//       },
+//       body: JSON.stringify(bodyCopy),
+//     };
+//   } else {
+//     bodyCopy['classCode'] = classCode;
+//     option = {
+//       method: 'POST',
+//       headers: {
+//           'Content-Type': 'application/json',
+//           'Access-Control-Request-Headers': '*'
+//       },
+//       body: JSON.stringify(bodyCopy)
+//     };
+//   }
+//   const res = await fetch(endpoint, option);
+//   const resJson = await res.json();
+//   return resJson;
+// };
 
 export const activate = async(context: vscode.ExtensionContext) => {
   vscode.window.showInformationMessage('Mimamori-logger is activated.');
@@ -127,9 +167,19 @@ export const activate = async(context: vscode.ExtensionContext) => {
 
     //Post data to Mimamori
     try {
-      const res = await fetchData(MIMAMORI_CODER_API_ENDPOINT, dataType, bodyData, classCode, false);
+      // const res = await fetchData(MIMAMORI_CODER_API_ENDPOINT, dataType, bodyData, classCode, false);
+      const res = await fetchData(MIMAMORI_CODER_API_ENDPOINT, dataType, bodyData, classCode, false, 180000); // Set the timeout to 10000 ms
     } catch (e: any) {
       vscode.window.showInformationMessage(e.message);
+      // TODO: write out the data into a local file
+      // 1. check if a temp file exist at the project root
+      const ifExist = checkFileExists(tempDataFileName);
+      if (!ifExist) {
+        // 2. if no, create a temp file
+        createJsonFile(tempDataFileName)
+
+      }
+
     }
   });
 
