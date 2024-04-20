@@ -1,7 +1,43 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import fetch from 'node-fetch';
 
+// @ts-ignore
+export async function fetchData(url, dataType, bodyData, classCode, throwError, timeout = 5000) { // timeout parameter with a default of 5000 milliseconds
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  let bodyCopy = bodyData;
+  bodyCopy['classCode'] = classCode;
+
+  try {
+      const response = await fetch(url, {
+          method: 'POST', // Assuming POST, update as needed
+          headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Request-Headers': '*'
+          },
+          body: JSON.stringify(bodyCopy),
+          // @ts-ignore
+          signal: controller.signal
+      });
+
+      clearTimeout(timeoutId); // Clear the timeout as fetch has completed
+
+      if (!response.ok && throwError) {
+          throw new Error('Network response was not ok');
+      }
+
+      return await response.json(); // Assuming the server responds with JSON
+  } catch (error) {
+        // @ts-ignore
+      if (error.name === 'AbortError') {
+          throw new Error('Fetch request timed out');
+      } else {
+          throw error;
+      }
+  }
+}
 export function checkFileExists(tempDataFileName: string) {
     // Get the root path of the first workspace folder
     const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -82,3 +118,37 @@ export function appendDataToLocalFile(newData) {
         vscode.window.showErrorMessage('Failed to append data: ' + error);
     }
 }
+
+// const fetchData = async(endpoint: string, dataType: string, bodyData: any, classCode: any, isMongo: boolean) => {
+//   let option = {};
+
+//   let bodyCopy = bodyData;
+//   if (isMongo) {
+//     bodyCopy['collection'] = dataType;
+//     bodyCopy['database'] = MONGO_DB_NAME;
+//     bodyCopy['dataSource'] = MONGO_DATA_SRC;
+//     vscode.window.showInformationMessage(classCode);
+//     option = {
+//       method: 'POST',
+//       headers: {
+//           'Content-Type': 'application/json',
+//           'Access-Control-Request-Headers': '*',
+//           'api-key': MONGO_API_KEY
+//       },
+//       body: JSON.stringify(bodyCopy),
+//     };
+//   } else {
+//     bodyCopy['classCode'] = classCode;
+//     option = {
+//       method: 'POST',
+//       headers: {
+//           'Content-Type': 'application/json',
+//           'Access-Control-Request-Headers': '*'
+//       },
+//       body: JSON.stringify(bodyCopy)
+//     };
+//   }
+//   const res = await fetch(endpoint, option);
+//   const resJson = await res.json();
+//   return resJson;
+// };
