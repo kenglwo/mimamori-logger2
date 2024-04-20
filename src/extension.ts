@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import fetch from 'node-fetch';
 import { config } from 'dotenv';
 config({ path: path.join(__dirname, '..', '.env') });
-import { checkFileExists, createJsonFile } from './utils';
+import { checkFileExists, createJsonFile, appendDataToLocalFile } from './utils';
 
 const MONGO_API_KEY: string = process.env.MONGO_API_KEY || '';
 const MONGO_DB_NAME: string = process.env.DBNAME || '';
@@ -156,7 +156,7 @@ export const activate = async(context: vscode.ExtensionContext) => {
         'savedAt': savedDate,
         'sources': source
       }
-	};
+    };
 
     //Post data to MongoDB
     // try {
@@ -165,7 +165,7 @@ export const activate = async(context: vscode.ExtensionContext) => {
     //   vscode.window.showInformationMessage(e.message);
     // }
 
-    //Post data to Mimamori
+    // Post data to Mimamori
     try {
       // const res = await fetchData(MIMAMORI_CODER_API_ENDPOINT, dataType, bodyData, classCode, false);
       const res = await fetchData(MIMAMORI_CODER_API_ENDPOINT, dataType, bodyData, classCode, false, 180000); // Set the timeout to 10000 ms
@@ -174,12 +174,15 @@ export const activate = async(context: vscode.ExtensionContext) => {
       // TODO: write out the data into a local file
       // 1. check if a temp file exist at the project root
       const ifExist = checkFileExists(tempDataFileName);
+      const newData = {dataType, bodyData, classCode};
       if (!ifExist) {
         // 2. if no, create a temp file
-        createJsonFile(tempDataFileName)
-
+        createJsonFile(tempDataFileName, newData);
+      } 
+      else {
+        // 3. write out the data into the local file
+        appendDataToLocalFile(newData);
       }
-
     }
   });
 
