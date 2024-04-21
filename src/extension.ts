@@ -10,6 +10,7 @@ const MONGO_DATA_SRC: string = process.env.DATA_SRC || '';
 const MONGO_API_ENDPOINT: string = process.env.MONGO_API_ENDPOINT || '';
 const MIMAMORI_CODER_API_ENDPOINT: string = process.env.MIMAMORI_CODER_API_ENDPOINT || '';
 const tempDataFileName: string = 'tempData.json';
+const tempDataFolderName: string = "__data__";
 
 export const activate = async(context: vscode.ExtensionContext) => {
   vscode.window.showInformationMessage('Mimamori-logger is activated.');
@@ -102,15 +103,15 @@ export const activate = async(context: vscode.ExtensionContext) => {
       vscode.window.showInformationMessage(e.message);
       // TODO: write out the data into a local file
       // 1. check if a temp file exist at the project root
-      const ifExist = checkFileExists(tempDataFileName);
+      const ifExist = checkFileExists(tempDataFolderName, tempDataFileName);
       const newData = {dataType, bodyData, classCode};
       if (!ifExist) {
         // 2. if no, create a temp file
-        createJsonFile(tempDataFileName, newData);
+        createJsonFile(tempDataFolderName, tempDataFileName, newData);
       } 
       else {
         // 3. write out the data into the local file
-        appendDataToLocalFile(newData);
+        appendDataToLocalFile(newData, tempDataFolderName, tempDataFileName);
       }
     }
   });

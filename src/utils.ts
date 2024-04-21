@@ -38,7 +38,7 @@ export async function fetchData(url, dataType, bodyData, classCode, throwError, 
       }
   }
 }
-export function checkFileExists(tempDataFileName: string) {
+export function checkFileExists(tempDataFolderName: string, tempDataFileName: string) {
     // Get the root path of the first workspace folder
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders) {
@@ -49,7 +49,7 @@ export function checkFileExists(tempDataFileName: string) {
     const rootPath = workspaceFolders[0].uri.fsPath;
 
     // Construct the full path to tempData.json at the project root
-    const filePath = path.join(rootPath, 'config', tempDataFileName);
+    const filePath = path.join(rootPath, tempDataFolderName, tempDataFileName);
 
     let flag: boolean= false;
     // Check if tempData.json exists
@@ -63,19 +63,19 @@ export function checkFileExists(tempDataFileName: string) {
 }
 
 // @ts-ignore
-export function createJsonFile(tempDataFileName: string, newData) {
+export function createJsonFile(tempDataFolderName: string, tempDataFileName: string, newData) {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders) {
         vscode.window.showInformationMessage('No workspace is open.');
         return;
     }
     const rootPath = workspaceFolders[0].uri.fsPath;
-    const configPath = path.join(rootPath, 'config');
-    const filePath = path.join(rootPath, 'config', tempDataFileName);  // Specifies the file path within the project root
+    const dataFolderPath = path.join(rootPath, tempDataFolderName);
+    const filePath = path.join(rootPath, tempDataFolderName, tempDataFileName);  // Specifies the file path within the project root
 
     // Ensure the config folder exists
-    if (!fs.existsSync(configPath)) {
-        fs.mkdirSync(configPath);
+    if (!fs.existsSync(dataFolderPath)) {
+        fs.mkdirSync(dataFolderPath);
     }
 
     fs.writeFile(filePath, JSON.stringify({"data": []}, null, 2), (err) => {
@@ -83,13 +83,13 @@ export function createJsonFile(tempDataFileName: string, newData) {
             console.error('Failed to create tempData.json:', err);
         } else {
             console.log('tempData.json created successfully!');
-            appendDataToLocalFile(newData)
+            appendDataToLocalFile(newData, tempDataFolderName, tempDataFileName);
         }
     });
 }
 
 // @ts-ignore
-export function appendDataToLocalFile(newData) {
+export function appendDataToLocalFile(newData, tempDataFolderName, tempDataFileName) {
     // Get the root path of the workspace
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders) {
@@ -99,7 +99,7 @@ export function appendDataToLocalFile(newData) {
     const rootPath = workspaceFolders[0].uri.fsPath;
 
     // Define the path for the data.json file in the config folder
-    const filePath = path.join(rootPath, 'config', 'tempData.json');
+    const filePath = path.join(rootPath, tempDataFolderName, tempDataFileName);
 
     // Read the existing data.json file
     try {
