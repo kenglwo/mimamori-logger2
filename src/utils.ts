@@ -3,6 +3,30 @@ import * as path from 'path';
 import * as fs from 'fs';
 import fetch from 'node-fetch';
 
+function getRootPath() {
+    // Get the root path of the first workspace folder
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders) {
+        vscode.window.showInformationMessage('No workspace is open. Please open a folder via File -> Open Folder');
+        return;
+    }
+    const rootPath = workspaceFolders[0].uri.fsPath;
+    return rootPath;
+}
+
+function getFilePath(dirName: string, fileName: string) {
+    // Get the root path of the first workspace folder
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders) {
+        vscode.window.showInformationMessage('No workspace is open. Please open a folder via File -> Open Folder');
+        return;
+    }
+    const rootPath = workspaceFolders[0].uri.fsPath;
+    // Construct the full path to tempData.json at the project root
+    const filePath:string = path.join(rootPath, dirName, fileName);
+    return filePath;
+}
+
 // @ts-ignore
 export async function fetchData(url, dataType, bodyData, classCode, throwError, timeout = 5000) { // timeout parameter with a default of 5000 milliseconds
   const controller = new AbortController();
@@ -39,85 +63,102 @@ export async function fetchData(url, dataType, bodyData, classCode, throwError, 
   }
 }
 export function checkFileExists(tempDataFolderName: string, tempDataFileName: string) {
-    // Get the root path of the first workspace folder
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders) {
-        vscode.window.showInformationMessage('No workspace is open.');
+
+    const filePath:string | undefined= getFilePath(tempDataFolderName, tempDataFileName);
+    if (filePath === undefined) {
         return;
-    }
-
-    const rootPath = workspaceFolders[0].uri.fsPath;
-
-    // Construct the full path to tempData.json at the project root
-    const filePath = path.join(rootPath, tempDataFolderName, tempDataFileName);
-
-    let flag: boolean= false;
-    // Check if tempData.json exists
-    if (fs.existsSync(filePath)) {
-        vscode.window.showInformationMessage('File tempData.json exists.');
-        flag = true;
     } else {
-        vscode.window.showInformationMessage('File tempData.json does not exist.');
+        let flag: boolean= false;
+        // Check if tempData.json exists
+        if (fs.existsSync(filePath)) {
+            // vscode.window.showInformationMessage('File tempData.json exists.');
+            flag = true;
+        } else {
+            // vscode.window.showInformationMessage('File tempData.json does not exist.');
+        }
+        return flag;
     }
-    return flag;
 }
 
 // @ts-ignore
 export function createJsonFile(tempDataFolderName: string, tempDataFileName: string, newData) {
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders) {
-        vscode.window.showInformationMessage('No workspace is open.');
+    const rootPath: string | undefined = getRootPath();
+    const filePath:string | undefined= getFilePath(tempDataFolderName, tempDataFileName);
+    if (rootPath === undefined && filePath === undefined) {
         return;
-    }
-    const rootPath = workspaceFolders[0].uri.fsPath;
-    const dataFolderPath = path.join(rootPath, tempDataFolderName);
-    const filePath = path.join(rootPath, tempDataFolderName, tempDataFileName);  // Specifies the file path within the project root
-
-    // Ensure the config folder exists
-    if (!fs.existsSync(dataFolderPath)) {
-        fs.mkdirSync(dataFolderPath);
-    }
-
-    fs.writeFile(filePath, JSON.stringify({"data": []}, null, 2), (err) => {
-        if (err) {
-            console.error('Failed to create tempData.json:', err);
-        } else {
-            console.log('tempData.json created successfully!');
-            appendDataToLocalFile(newData, tempDataFolderName, tempDataFileName);
+    } else if (rootPath !== undefined && filePath !== undefined){
+        const dataFolderPath:string = path.join(rootPath, tempDataFolderName)
+        // Ensure the config folder exists
+        if (!fs.existsSync(dataFolderPath)) {
+            fs.mkdirSync(dataFolderPath);
         }
-    });
+
+        fs.writeFile(filePath, JSON.stringify({"data": []}, null, 2), (err) => {
+            if (err) {
+                console.error('Failed to create tempData.json:', err);
+            } else {
+                console.log('tempData.json created successfully!');
+                appendDataToLocalFile(newData, tempDataFolderName, tempDataFileName);
+            }
+        });
+    }
 }
 
 // @ts-ignore
 export function appendDataToLocalFile(newData, tempDataFolderName, tempDataFileName) {
-    // Get the root path of the workspace
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders) {
-        vscode.window.showErrorMessage('No workspace is open.');
+    const filePath: string | undefined = getFilePath(tempDataFolderName, tempDataFileName);
+
+    if ( filePath === undefined) {
         return;
-    }
-    const rootPath = workspaceFolders[0].uri.fsPath;
+    } else {
+        // Read the existing data.json file
+        try {
+            // Read and parse the existing content of data.json
+            const fileContent = fs.readFileSync(filePath, 'utf8');
+            const jsonData = JSON.parse(fileContent);
 
-    // Define the path for the data.json file in the config folder
-    const filePath = path.join(rootPath, tempDataFolderName, tempDataFileName);
+            // Assume jsonData is an array and append new data to it
+            jsonData["data"].push(newData);
 
-    // Read the existing data.json file
-    try {
-        // Read and parse the existing content of data.json
-        const fileContent = fs.readFileSync(filePath, 'utf8');
-        const jsonData = JSON.parse(fileContent);
+            // Write the updated array back to data.json
+            fs.writeFileSync(filePath, JSON.stringify(jsonData, null, 2));
 
-        // Assume jsonData is an array and append new data to it
-        jsonData["data"].push(newData);
-
-        // Write the updated array back to data.json
-        fs.writeFileSync(filePath, JSON.stringify(jsonData, null, 2));
-
-        vscode.window.showInformationMessage('Data appended to data.json successfully.');
-    } catch (error) {
-        vscode.window.showErrorMessage('Failed to append data: ' + error);
+            vscode.window.showInformationMessage('Data appended to data.json successfully.');
+        } catch (error) {
+            vscode.window.showErrorMessage('Failed to append data: ' + error);
+        }
     }
 }
+
+export function ifLocalDataExists(tempDataFolderName: string, tempDataFileName: string) {
+    const filePath: string | undefined = getFilePath(tempDataFolderName, tempDataFileName);
+
+    let flag: boolean = false;
+    if ( filePath === undefined) {
+        return;
+    } else {
+        fs.readFile(filePath, (err, data) => {
+            if (err) {
+                console.error('Error reading file:', err);
+                return;
+            }
+        
+            try {
+                // @ts-ignore
+                const jsonData = JSON.parse(data);
+                if (Array.isArray(jsonData["data"]) && jsonData["data"].length > 0) {
+                    flag = true;
+                    vscode.window.showInformationMessage("local data exists");
+                } else {
+                    vscode.window.showInformationMessage("no local data");
+                }
+            } catch (parseErr) {
+                console.error('Error parsing JSON:', parseErr);
+            }
+        });
+    }
+    return flag;
+  }
 
 // const fetchData = async(endpoint: string, dataType: string, bodyData: any, classCode: any, isMongo: boolean) => {
 //   let option = {};

@@ -2,7 +2,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { config } from 'dotenv';
 config({ path: path.join(__dirname, '..', '.env') });
-import { fetchData, checkFileExists, createJsonFile, appendDataToLocalFile } from './utils';
+import { fetchData, checkFileExists, createJsonFile, appendDataToLocalFile, ifLocalDataExists } from './utils';
 
 const MONGO_API_KEY: string = process.env.MONGO_API_KEY || '';
 const MONGO_DB_NAME: string = process.env.DBNAME || '';
@@ -97,7 +97,12 @@ export const activate = async(context: vscode.ExtensionContext) => {
     try {
       // const res = await fetchData(MIMAMORI_CODER_API_ENDPOINT, dataType, bodyData, classCode, false);
       // TODO: check if local data exists
-      // TODO: if exists, send it by each entry
+      const localDataExists = ifLocalDataExists(tempDataFolderName, tempDataFileName);
+      if (localDataExists) {
+        // TODO: if exists, send it by each entry
+
+      } 
+
       const res = await fetchData(MIMAMORI_CODER_API_ENDPOINT, dataType, bodyData, classCode, false, 180000); // Set the timeout to 10000 ms
     } catch (e: any) {
       vscode.window.showInformationMessage(e.message);
