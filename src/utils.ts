@@ -3,6 +3,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import fetch from 'node-fetch';
 
+const MIMAMORI_CODER_API_ENDPOINT: string = process.env.MIMAMORI_CODER_API_ENDPOINT || '';
+
 function getRootPath() {
     // Get the root path of the first workspace folder
     const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -87,7 +89,7 @@ export function createJsonFile(tempDataFolderName: string, tempDataFileName: str
     if (rootPath === undefined && filePath === undefined) {
         return;
     } else if (rootPath !== undefined && filePath !== undefined){
-        const dataFolderPath:string = path.join(rootPath, tempDataFolderName)
+        const dataFolderPath:string = path.join(rootPath, tempDataFolderName);
         // Ensure the config folder exists
         if (!fs.existsSync(dataFolderPath)) {
             fs.mkdirSync(dataFolderPath);
@@ -130,34 +132,81 @@ export function appendDataToLocalFile(newData, tempDataFolderName, tempDataFileN
     }
 }
 
-export function ifLocalDataExists(tempDataFolderName: string, tempDataFileName: string) {
+export function sendLocalDataIfExists(tempDataFolderName: string, tempDataFileName: string) {
     const filePath: string | undefined = getFilePath(tempDataFolderName, tempDataFileName);
 
-    let flag: boolean = false;
     if ( filePath === undefined) {
         return;
     } else {
-        fs.readFile(filePath, (err, data) => {
+        fs.readFile(filePath, 'utf8', (err, data) => {
             if (err) {
                 console.error('Error reading file:', err);
                 return;
             }
         
+            // @ts-ignore
+            const jsonData = JSON.parse(data);
+            if (Array.isArray(jsonData["data"]) && jsonData["data"].length > 0) {
+                // vscode.window.showInformationMessage("local data exists");
+                if (jsonData !== undefined && jsonData["data"].length > 0)  {
+                    let ifDataSentSuccess = false;
+                    try {
+                        jsonData["data"].forEach(async (d, i) => {
+                            console.log(`sending record ${i}`);
+                            // vscode.window.showInformationMessage('local data is sending');
+                            const res = await fetchData(MIMAMORI_CODER_API_ENDPOINT, d["dataType"], d["bodyData"], d["classCode"], false, 180000); // Set the timeout to 10000 ms
+                            ifDataSentSuccess = true;
+
+                            // if last record succesfully sent, initialize the data array
+                            if (i+1 === jsonData["data"].length && ifDataSentSuccess){
+                                vscode.window.showInformationMessage(`Sucessfully sent ${jsonData["data"].length} local records.`);
+                                fs.writeFile(filePath, JSON.stringify({"data": []}, null, 2), (err) => {
+                                    if (err) {
+                                        console.error('Failed to initialize  tempData.json:', err);
+                                    } else {
+                                        console.log('tempData.json initialized  successfully!');
+                                    }
+                                });
+                            }
+                        });
+                    } catch {
+                        console.log("Local data has not been sent")
+                    } 
+                }
+            } else {
+                // vscode.window.showInformationMessage("no local data");
+                return;
+            }
+        });
+    }
+  }
+
+export function getLocalData(tempDataFolderName: string, tempDataFileName: string) {
+    const filePath: string | undefined = getFilePath(tempDataFolderName, tempDataFileName);
+
+    if ( filePath === undefined) {
+        return [];
+    } else {
+        fs.readFile(filePath, 'utf8', (err, data) => {
+            if (err) {
+                console.error('Error reading file:', err);
+                return [];
+            }
+        
             try {
                 // @ts-ignore
                 const jsonData = JSON.parse(data);
-                if (Array.isArray(jsonData["data"]) && jsonData["data"].length > 0) {
-                    flag = true;
-                    vscode.window.showInformationMessage("local data exists");
+                vscode.window.showInformationMessage(jsonData);
+                if (Array.isArray(jsonData["data"])) {
+                    return jsonData["data"];
                 } else {
-                    vscode.window.showInformationMessage("no local data");
+                    return [];
                 }
             } catch (parseErr) {
                 console.error('Error parsing JSON:', parseErr);
             }
         });
     }
-    return flag;
   }
 
 // const fetchData = async(endpoint: string, dataType: string, bodyData: any, classCode: any, isMongo: boolean) => {
