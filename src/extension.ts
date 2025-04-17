@@ -1,48 +1,16 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
-import fetch from 'node-fetch';
 import { config } from 'dotenv';
 config({ path: path.join(__dirname, '..', '.env') });
+import { fetchData, checkFileExists, createJsonFile, appendDataToLocalFile, sendLocalDataIfExists} from './utils';
 
 const MONGO_API_KEY: string = process.env.MONGO_API_KEY || '';
 const MONGO_DB_NAME: string = process.env.DBNAME || '';
 const MONGO_DATA_SRC: string = process.env.DATA_SRC || '';
 const MONGO_API_ENDPOINT: string = process.env.MONGO_API_ENDPOINT || '';
 const MIMAMORI_CODER_API_ENDPOINT: string = process.env.MIMAMORI_CODER_API_ENDPOINT || '';
-
-const fetchData = async(endpoint: string, dataType: string, bodyData: any, classCode: any, isMongo: boolean) => {
-  let option = {};
-
-  let bodyCopy = bodyData;
-  if (isMongo) {
-    bodyCopy['collection'] = dataType;
-    bodyCopy['database'] = MONGO_DB_NAME;
-    bodyCopy['dataSource'] = MONGO_DATA_SRC;
-    vscode.window.showInformationMessage(classCode);
-    option = {
-      method: 'POST',
-      headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Request-Headers': '*',
-          'api-key': MONGO_API_KEY
-      },
-      body: JSON.stringify(bodyCopy),
-    };
-  } else {
-    bodyCopy['classCode'] = classCode;
-    option = {
-      method: 'POST',
-      headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Request-Headers': '*'
-      },
-      body: JSON.stringify(bodyCopy)
-    };
-  }
-  const res = await fetch(endpoint, option);
-  const resJson = await res.json();
-  return resJson;
-};
+const tempDataFileName: string = 'tempData.json';
+const tempDataFolderName: string = "__data__";
 
 export const activate = async(context: vscode.ExtensionContext) => {
   vscode.window.showInformationMessage('Mimamori-logger is activated.');
@@ -116,7 +84,7 @@ export const activate = async(context: vscode.ExtensionContext) => {
         'savedAt': savedDate,
         'sources': source
       }
-	};
+    };
 
     //Post data to MongoDB
     // try {
@@ -125,11 +93,23 @@ export const activate = async(context: vscode.ExtensionContext) => {
     //   vscode.window.showInformationMessage(e.message);
     // }
 
-    //Post data to Mimamori
+    // Post data to Mimamori
     try {
-      const res = await fetchData(MIMAMORI_CODER_API_ENDPOINT, dataType, bodyData, classCode, false);
+      sendLocalDataIfExists(tempDataFolderName, tempDataFileName);
+      const res = await fetchData(MIMAMORI_CODER_API_ENDPOINT, dataType, bodyData, classCode, false, 180000); // Set the timeout to 10000 ms
     } catch (e: any) {
       vscode.window.showInformationMessage(e.message);
+      // 1. check if a temp file exist at the project root
+      const ifExist = checkFileExists(tempDataFolderName, tempDataFileName);
+      const newData = {dataType, bodyData, classCode};
+      if (!ifExist) {
+        // 2. if no, create a temp file
+        createJsonFile(tempDataFolderName, tempDataFileName, newData);
+      } 
+      else {
+        // 3. write out the data into the local file
+        appendDataToLocalFile(newData, tempDataFolderName, tempDataFileName);
+      }
     }
   });
 
@@ -159,6 +139,6 @@ export const activate = async(context: vscode.ExtensionContext) => {
 
 	context.subscriptions.push(disposableChangeId);
 	context.subscriptions.push(disposableChangeClassCode);
-}
+};
 
 export function deactivate() {};
